@@ -252,6 +252,41 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:-a
 .fail-list li::before { content:'→ '; color:var(--muted); }
 .fail-list li:last-child { border-bottom:none; }
 
+
+/* ═══ LEARNING / TRACK RECORD STYLES ══════════════════════════════════════ */
+.learn-hero { background:linear-gradient(135deg,#0d2a1a,#0a3d20); border:1px solid #2e7d32; border-radius:20px; padding:20px; margin-bottom:12px; text-align:center; }
+.learn-acc  { font-size:48px; font-weight:900; color:#69f0ae; line-height:1; }
+.learn-sub  { font-size:12px; color:#81c784; margin-top:4px; }
+.learn-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:12px; }
+.learn-stat { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; text-align:center; }
+.learn-stat .sv { font-size:22px; font-weight:800; color:var(--accent); }
+.learn-stat .sl { font-size:10px; color:var(--sub); margin-top:2px; }
+.surf-row   { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border); font-size:12px; }
+.surf-row:last-child { border-bottom:none; }
+.surf-bar-wrap { flex:1; height:6px; background:var(--border); border-radius:3px; overflow:hidden; margin:0 10px; }
+.surf-bar-fill { height:100%; background:var(--accent); border-radius:3px; }
+.pending-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:10px; }
+.pending-match { font-size:13px; font-weight:700; margin-bottom:4px; }
+.pending-meta  { font-size:11px; color:var(--sub); margin-bottom:10px; }
+.pending-pred  { font-size:12px; color:var(--accent); margin-bottom:10px; }
+.outcome-btns  { display:flex; gap:8px; }
+.outcome-btn   { flex:1; padding:10px; border-radius:10px; border:none; font-size:12px; font-weight:700; cursor:pointer; }
+.outcome-btn.p1 { background:#1b3a1b; color:#69f0ae; border:1px solid #2e7d32; }
+.outcome-btn.p2 { background:#3a1b1b; color:#ff8a80; border:1px solid #7d2e2e; }
+.history-row  { display:flex; gap:8px; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--border); }
+.history-row:last-child { border-bottom:none; }
+.hist-icon { font-size:18px; flex-shrink:0; margin-top:1px; }
+.hist-body { flex:1; font-size:11px; }
+.hist-match { font-weight:700; color:var(--text); margin-bottom:2px; }
+.hist-meta  { color:var(--sub); }
+.hist-analysis { color:var(--muted); font-style:italic; margin-top:3px; font-size:10px; }
+.flag-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border); font-size:12px; }
+.flag-row:last-child { border-bottom:none; }
+.weights-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+.weight-card  { background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:10px; text-align:center; }
+.weight-val   { font-size:18px; font-weight:800; color:var(--accent); }
+.weight-lbl   { font-size:10px; color:var(--sub); }
+.learn-badge  { display:inline-flex; align-items:center; gap:4px; background:#1b3a1b; border:1px solid #2e7d32; color:#69f0ae; font-size:10px; font-weight:700; padding:3px 8px; border-radius:8px; margin-left:6px; }
 </style>
 </head>
 <body>
@@ -267,6 +302,7 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:-a
     <div class="tab active" onclick="setTab('fixtures',this)">📅 Today</div>
     <div class="tab" onclick="setTab('picker',this)">🎯 Matchup</div>
     <div class="tab" onclick="setTab('rankings',this)">📊 Rankings</div>
+    <div class="tab" onclick="setTab('learn',this)">🧠 Learn</div>
   </div>
   <div class="date-nav" id="date-nav">
     <button class="dnav-btn" id="prev-btn" onclick="shiftDate(-1)">‹ Prev</button>
@@ -315,6 +351,10 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:-a
         <div class="quick-hint">Tap to fill Player 1 → then Player 2</div>
       </div>
     </div>
+  </div>
+
+  <div class="screen" id="screen-learn">
+    <div id="learn-content"><div style="text-align:center;padding:40px;color:var(--sub)">Loading…</div></div>
   </div>
 
   <div class="screen" id="screen-rankings">
@@ -1050,7 +1090,8 @@ function analytical(p1, p2, surface, bestOf, h2h, weather) {
 
 function superCombined(models, p1, p2, surface, bestOf) {
   const [mc, lr, po, an] = models;
-  const w = [0.30, 0.25, 0.25, 0.20]; // weights
+  const lw = window._learnedW;
+  const w = lw ? [lw.mc, lw.lr, lw.po, lw.an] : [0.30, 0.25, 0.25, 0.20];
   const p1wp = mc.p1WinProb*w[0] + lr.p1WinProb*w[1] + po.p1WinProb*w[2] + an.p1WinProb*w[3];
   const probs = models.map(m=>m.p1WinProb);
   const mean = probs.reduce((a,b)=>a+b,0)/probs.length;
@@ -1098,7 +1139,8 @@ async function runFullPrediction(p1id, p2id, surface, bestOf, tour, countryAcr='
 
   // Apply physical/fatigue adjustments to final probability
   let adjProb = sc.p1WinProb;
-  const fatigueMapP1 = { 'High': -0.055, 'Medium': -0.025, 'Low': 0 };
+  const fm = (window._learnedW?.fatigue || 1.0);
+  const fatigueMapP1 = { 'High': -0.055 * fm, 'Medium': -0.025 * fm, 'Low': 0 };
   const fatigueMapP2 = { 'High': +0.055, 'Medium': +0.025, 'Low': 0 };
   adjProb += fatigueMapP1[p1Intel.fatigueRisk] || 0;
   adjProb += fatigueMapP2[p2Intel.fatigueRisk] || 0;
@@ -1109,7 +1151,8 @@ async function runFullPrediction(p1id, p2id, surface, bestOf, tour, countryAcr='
   adjProb = Math.min(0.95, Math.max(0.05, adjProb));
 
   const tactical = analyzeTacticalMatchup(p1, p2, surface, p1Intel, p2Intel);
-  adjProb += tactical.rawScore * 0.012; // tactical score adjusts prob slightly
+  const tacMult = window._learnedW?.tactical || 1.0;
+  adjProb += tactical.rawScore * 0.012 * tacMult; // tactical score adjusts prob with learned weight
   adjProb = Math.min(0.95, Math.max(0.05, adjProb));
 
   const upsetRisk = calcUpsetRisk(p1, p2, p1Intel, p2Intel, tactical, adjProb, surface, isGrandSlam);
@@ -1199,6 +1242,7 @@ function setTab(tab, btn) {
   document.getElementById('date-nav').style.display = tab==='fixtures' ? 'flex' : 'none';
   if (tab==='fixtures' && !state.fixtures.length) loadFixtures();
   if (tab==='rankings' && !state.rankingsLoaded) loadRankings();
+  if (tab==='learn') loadLearnTab();
 }
 
 function setSurf(s, btn) {
@@ -1647,6 +1691,229 @@ function initQuickPicks() {
       <span class="qnm">${p.name}</span><span class="qid">${p.id}</span>
     </div>`).join('');
 }
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LEARNING ENGINE — persistent prediction logger + self-improving weights
+// ══════════════════════════════════════════════════════════════════════════════
+const LEARN_URL = 'https://app.base44.com/functions/learningEngine';
+
+async function learnFetch(payload) {
+  try {
+    const r = await fetch(LEARN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    return await r.json();
+  } catch(e) { return { ok: false, error: e.message }; }
+}
+
+// Auto-log a prediction when detail is opened
+async function logPrediction(f, r) {
+  if (!f?.id || !r) return;
+  const ea = r.eliteAnalysis || {};
+  const det = ea.upsetRisk?.detectors || {};
+  learnFetch({
+    action: 'log_prediction',
+    fixture_id: f.id,
+    match_date: f.date || new Date().toISOString(),
+    tour: state.tour,
+    surface: r.surface,
+    best_of: r.bestOf,
+    tournament_name: f.tournament?.name || '',
+    round_name: f.round?.name || '',
+    p1_id: r.player1.id, p1_name: r.player1.name,
+    p2_id: r.player2.id, p2_name: r.player2.name,
+    predicted_winner_id: r.superCombined.p1WinProb > 0.5 ? r.player1.id : r.player2.id,
+    predicted_winner_name: r.predictedWinner,
+    predicted_win_pct: r.winnerWinPct,
+    predicted_set_score: r.superCombined.predictedSetScore,
+    model_mc: r.models?.monteCarlo?.p1WinProb || 0.5,
+    model_lr: r.models?.logisticRegression?.p1WinProb || 0.5,
+    model_po: r.models?.poisson?.p1WinProb || 0.5,
+    model_an: r.models?.analytical?.p1WinProb || 0.5,
+    upset_risk_score: ea.upsetRisk?.score || 0,
+    fatigue_risk_p1: ea.p1Intel?.fatigueRisk || 'Low',
+    fatigue_risk_p2: ea.p2Intel?.fatigueRisk || 'Low',
+    surface_score_p1: ea.p1Intel?.surfScore || 5,
+    surface_score_p2: ea.p2Intel?.surfScore || 5,
+    tactical_score: ea.tactical?.rawScore || 0,
+    tactical_edge: ea.tactical?.tacticalEdge || 'Neutral',
+    fragile_favorite: det.fragileFavorite || false,
+    dangerous_underdog: det.dangerousUnderdog || false,
+    surface_fraud: det.surfaceFraud || false,
+    fatigue_collapse: det.fatigueCollapse || false,
+  });
+}
+
+// Fetch learned weights and apply to superCombined weighting
+let learnedWeights = null;
+async function fetchLearnedWeights() {
+  const res = await learnFetch({ action: 'get_weights' });
+  if (res.ok && res.weights) {
+    learnedWeights = res.weights;
+    // Update superCombined weights dynamically
+    window._learnedW = {
+      mc: res.weights.w_mc || 0.30,
+      lr: res.weights.w_lr || 0.25,
+      po: res.weights.w_po || 0.25,
+      an: res.weights.w_an || 0.20,
+      fatigue: res.weights.fatigue_multiplier || 1.0,
+      tactical: res.weights.tactical_multiplier || 1.0,
+      upsetThreshold: res.weights.upset_risk_threshold || 35,
+    };
+    // Show accuracy badge in header if data exists
+    if (res.weights.total_predictions > 0) {
+      const pct = res.weights.accuracy_pct?.toFixed(0) || '0';
+      const badge = document.getElementById('learn-badge');
+      if (badge) { badge.textContent = `${pct}% acc`; badge.style.display='inline-flex'; }
+    }
+  }
+}
+
+// ── LEARN TAB UI ─────────────────────────────────────────────────────────────
+async function loadLearnTab() {
+  const el = document.getElementById('learn-content');
+  el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--sub)"><div class="big-spin"></div><div class="spin-msg">Loading track record…</div></div>';
+
+  const [histRes, pendRes, wtRes] = await Promise.all([
+    learnFetch({ action: 'get_history' }),
+    learnFetch({ action: 'get_pending' }),
+    learnFetch({ action: 'get_weights' }),
+  ]);
+
+  const h = histRes.ok ? histRes : { total:0, pending:0, completed:0, correct:0, accuracy_pct:'0.0', by_surface:{}, failure_flags:{}, recent:[] };
+  const p = pendRes.ok ? pendRes : { pending:[] };
+  const w = wtRes.ok ? wtRes.weights : {};
+
+  // Surface breakdown rows
+  const surfRows = Object.entries(h.by_surface||{}).map(([surf, d]) => {
+    const pct = d.n > 0 ? Math.round(d.c / d.n * 100) : 0;
+    const pillKey = surf==='Indoor Hard'?'Indoor':surf;
+    return `<div class="surf-row">
+      <span class="pill pill-${pillKey}" style="font-size:10px">${surf}</span>
+      <div class="surf-bar-wrap"><div class="surf-bar-fill" style="width:${pct}%"></div></div>
+      <span style="font-size:12px;font-weight:700;color:${pct>=60?'#69f0ae':pct>=45?'#ffcc80':'#ff6b6b'}">${pct}%</span>
+      <span style="font-size:10px;color:var(--sub);margin-left:6px">${d.c}/${d.n}</span>
+    </div>`;
+  }).join('') || '<div style="font-size:12px;color:var(--sub)">No completed predictions yet</div>';
+
+  // Failure flag rows
+  const flagRows = Object.entries(h.failure_flags||{}).map(([flag,count]) => {
+    const labels = { fragile_favorite:'💔 Fragile Favorite', dangerous_underdog:'⚡ Dangerous Underdog', fatigue_collapse:'💀 Fatigue Collapse', surface_fraud:'🚨 Surface Fraud' };
+    return `<div class="flag-row"><span>${labels[flag]||flag}</span><span style="font-weight:700;color:${count>2?'#ff6b6b':count>0?'#ffcc80':'var(--sub)'}">${count} missed calls</span></div>`;
+  }).join('');
+
+  // Pending outcome cards
+  const pendCards = (p.pending||[]).map(m => `
+    <div class="pending-card" id="pc-${m.fixture_id}">
+      <div class="pending-match">${m.match}</div>
+      <div class="pending-meta">${m.date||'?'} · ${m.surface} · ${m.tournament||''}</div>
+      <div class="pending-pred">🎯 Predicted: <strong>${m.predicted}</strong> (${m.predicted_pct?.toFixed(1)||'?'}%)</div>
+      <div style="font-size:11px;color:var(--sub);margin-bottom:8px">Who actually won?</div>
+      <div class="outcome-btns">
+        <button class="outcome-btn p1" onclick="submitOutcome('${m.fixture_id}','${m.p1_id}','${m.p1_name}','${m.fixture_id}')">${m.p1_name.split(' ').pop()}</button>
+        <button class="outcome-btn p2" onclick="submitOutcome('${m.fixture_id}','${m.p2_id}','${m.p2_name}','${m.fixture_id}')">${m.p2_name.split(' ').pop()}</button>
+      </div>
+    </div>`).join('') || '<div style="font-size:12px;color:var(--sub);padding:12px 0">No pending outcomes — open match predictions to start logging</div>';
+
+  // History rows
+  const histRows = (h.recent||[]).map(m => `
+    <div class="history-row">
+      <div class="hist-icon">${m.correct?'✅':'❌'}</div>
+      <div class="hist-body">
+        <div class="hist-match">${m.match}</div>
+        <div class="hist-meta">${m.date} · ${m.surface} · ${m.predicted} (${m.confidence}%) · Upset risk: ${m.upset_risk||0}${m.flags?` · ${m.flags}`:''}</div>
+        ${m.analysis ? `<div class="hist-analysis">${m.analysis}</div>` : ''}
+      </div>
+    </div>`).join('') || '<div style="font-size:12px;color:var(--sub);padding:12px 0">No completed predictions yet</div>';
+
+  // Weight cards
+  const weightCards = [
+    ['MC', ((w.w_mc||0.30)*100).toFixed(0)+'%'],
+    ['LR', ((w.w_lr||0.25)*100).toFixed(0)+'%'],
+    ['PO', ((w.w_po||0.25)*100).toFixed(0)+'%'],
+    ['AN', ((w.w_an||0.20)*100).toFixed(0)+'%'],
+    ['Fatigue ×', (w.fatigue_multiplier||1).toFixed(2)],
+    ['Tactical ×', (w.tactical_multiplier||1).toFixed(2)],
+  ].map(([l,v]) => `<div class="weight-card"><div class="weight-val">${v}</div><div class="weight-lbl">${l}</div></div>`).join('');
+
+  el.innerHTML = `
+    <!-- ACCURACY HERO -->
+    <div class="learn-hero">
+      <div class="learn-acc">${h.accuracy_pct}%</div>
+      <div class="learn-sub">Overall Accuracy · ${h.correct}/${h.completed} predictions</div>
+      <div style="font-size:11px;color:#81c784;margin-top:4px">${h.pending} awaiting outcome · v${w.version||1} weights</div>
+    </div>
+
+    <!-- STATS ROW -->
+    <div class="learn-grid">
+      <div class="learn-stat"><div class="sv">${h.total}</div><div class="sl">Logged</div></div>
+      <div class="learn-stat"><div class="sv">${h.pending}</div><div class="sl">Pending</div></div>
+      <div class="learn-stat"><div class="sv">v${w.version||1}</div><div class="sl">Model Ver.</div></div>
+    </div>
+
+    <!-- PENDING OUTCOMES -->
+    <div class="sec">⏳ Awaiting Outcomes</div>
+    ${pendCards}
+
+    <!-- SURFACE BREAKDOWN -->
+    <div class="elite-section">
+      <div class="elite-sec-header"><span class="elite-sec-icon">🎾</span><span class="elite-sec-title">Accuracy by Surface</span></div>
+      ${surfRows}
+    </div>
+
+    <!-- FAILURE FLAGS -->
+    <div class="elite-section">
+      <div class="elite-sec-header"><span class="elite-sec-icon">🚩</span><span class="elite-sec-title">Missed Call Patterns</span></div>
+      <div style="font-size:11px;color:var(--sub);margin-bottom:8px">How many wrong predictions had each flag active</div>
+      ${flagRows||'<div style="font-size:12px;color:var(--sub)">No data yet</div>'}
+    </div>
+
+    <!-- LEARNED WEIGHTS -->
+    <div class="elite-section">
+      <div class="elite-sec-header"><span class="elite-sec-icon">⚙️</span><span class="elite-sec-title">Learned Model Weights</span></div>
+      <div class="weights-grid">${weightCards}</div>
+      ${w.notes ? `<div style="font-size:10px;color:var(--sub);font-style:italic">${w.notes.split('|')[0]}</div>` : ''}
+    </div>
+
+    <!-- HISTORY -->
+    <div class="sec">📋 Prediction History</div>
+    <div class="ctx-card">${histRows}</div>
+  `;
+}
+
+async function submitOutcome(fixtureId, winnerId, winnerName, cardId) {
+  const card = document.getElementById(`pc-${cardId}`);
+  if (card) card.innerHTML = '<div style="text-align:center;padding:16px;color:var(--sub)"><div class="mini-spin"></div> Logging…</div>';
+
+  const res = await learnFetch({
+    action: 'log_outcome',
+    fixture_id: fixtureId,
+    actual_winner_id: winnerId,
+    actual_winner_name: winnerName,
+  });
+
+  if (res.ok) {
+    const icon = res.correct ? '✅' : '❌';
+    const color = res.correct ? '#69f0ae' : '#ff6b6b';
+    if (card) card.innerHTML = `
+      <div style="text-align:center;padding:12px">
+        <div style="font-size:24px">${icon}</div>
+        <div style="color:${color};font-weight:700;margin:4px 0">${res.correct ? 'Correct prediction!' : 'Wrong prediction'}</div>
+        <div style="font-size:10px;color:var(--sub);margin-top:6px">${res.failure_analysis||''}</div>
+        <div style="font-size:10px;color:var(--accent);margin-top:4px">Running accuracy: ${res.accuracy?.pct}% (${res.accuracy?.correct}/${res.accuracy?.total})</div>
+      </div>`;
+    // Refresh weights in background
+    fetchLearnedWeights();
+  } else {
+    if (card) card.innerHTML = `<div style="color:#ff6b6b;padding:10px;font-size:12px">Error: ${res.error}</div>`;
+  }
+}
+
+// Boot: fetch learned weights so they're applied from first prediction
+fetchLearnedWeights();
 
 // ─── BOOT ────────────────────────────────────────────────────────────────────
 initQuickPicks();
