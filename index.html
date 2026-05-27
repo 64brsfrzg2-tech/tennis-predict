@@ -287,6 +287,32 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:-a
 .weight-val   { font-size:18px; font-weight:800; color:var(--accent); }
 .weight-lbl   { font-size:10px; color:var(--sub); }
 .learn-badge  { display:inline-flex; align-items:center; gap:4px; background:#1b3a1b; border:1px solid #2e7d32; color:#69f0ae; font-size:10px; font-weight:700; padding:3px 8px; border-radius:8px; margin-left:6px; }
+
+/* ═══ TOURNAMENT GROUP STYLES ═══════════════════════════════════════════════ */
+.tour-group        { margin-bottom:14px; }
+.tour-group-header { display:flex; align-items:center; gap:8px; padding:10px 14px; 
+                     background:var(--card); border:1px solid var(--border); 
+                     border-radius:12px; cursor:pointer; user-select:none; margin-bottom:6px; }
+.tour-group-header.collapsed { border-radius:12px; }
+.tour-group-header:active { opacity:0.8; }
+.tgh-rank  { font-size:9px; font-weight:700; padding:2px 7px; border-radius:6px; text-transform:uppercase; letter-spacing:.5px; }
+.tgh-rank.gs      { background:#c9a227; color:#000; }
+.tgh-rank.atp1000 { background:#4a3f8a; color:#fff; }
+.tgh-rank.atp500  { background:#2a5a9a; color:#fff; }
+.tgh-rank.atp250  { background:#1a6a5a; color:#fff; }
+.tgh-rank.chal    { background:#2a4a2a; color:#69f0ae; }
+.tgh-rank.itf     { background:#3a2a1a; color:#ffcc80; }
+.tgh-name  { flex:1; font-size:13px; font-weight:700; color:var(--text); }
+.tgh-surf  { font-size:11px; }
+.tgh-count { font-size:11px; color:var(--sub); background:var(--bg); padding:2px 8px; border-radius:8px; }
+.tgh-arrow { font-size:12px; color:var(--sub); transition:transform .2s; }
+.tgh-arrow.open { transform:rotate(180deg); }
+.tour-cards { }
+.tour-filter-bar { display:flex; gap:8px; padding:8px 0 12px; align-items:center; flex-wrap:wrap; }
+.filter-btn { padding:6px 14px; border-radius:10px; border:1px solid var(--border); 
+              background:var(--card); color:var(--sub); font-size:11px; font-weight:600; cursor:pointer; }
+.filter-btn.active { background:var(--accent2); color:#fff; border-color:var(--accent); }
+.itf-notice { font-size:10px; color:var(--muted); }
 </style>
 </head>
 <body>
@@ -386,7 +412,42 @@ const CITY_COORDS = {
   'ESP':[40.41,-3.7],'ITA':[41.9,12.5],'GER':[52.52,13.4],'CHN':[31.23,121.47],
   'MON':[43.73,7.42],'CAN':[45.5,-73.57],'ARG':[-34.6,-58.38],'BRA':[-23.55,-46.63],
   'QAT':[25.29,51.53],'UAE':[25.2,55.27],'MAR':[33.99,-6.85],'JPN':[35.69,139.69],
-  'DEF':[48.85,2.35]
+  'DEF':[48.85,2.35],
+  'MDA':[47.0,28.9],   // Moldova - Chisinau
+  'BIH':[43.85,18.39], // Bosnia - Brcko/Sarajevo
+  'SVK':[48.67,21.0],  // Slovakia - Kosice
+  'GEO':[41.69,44.83], // Georgia - Kutaisi
+  'KOR':[37.57,126.97],// South Korea - Seoul/Gimcheon
+  'MKD':[41.99,21.43], // North Macedonia
+  'ROU':[44.43,26.1],  // Romania - Bucharest
+  'HUN':[47.5,19.05],  // Hungary - Budapest/Szentendre
+  'ARM':[40.18,44.51], // Armenia - Yerevan/Tsaghkadzor
+  'TUN':[36.81,10.18], // Tunisia - Monastir
+  'CRO':[43.5,16.44],  // Croatia - Split/Bol
+  'SRB':[43.7,21.89],  // Serbia - Kursumlijska Banja
+  'SVN':[46.12,14.81], // Slovenia - Kranjska Gora
+  'ZAF':[-25.85,28.29],// South Africa - Centurion
+  'JPN':[36.32,138.4], // Japan - Karuizawa/Fukui
+  'CHN':[29.55,105.09],// China - Chongqing/Luan
+  'TUR':[38.67,35.5],  // Turkey - Kayseri
+  'MAR':[33.59,-7.62], // Morocco - Casablanca
+  'ARG':[-34.61,-58.38],// Argentina
+  'BRA':[-23.55,-46.63],// Brazil
+  'MEX':[19.43,-99.13],// Mexico
+  'PER':[-12.05,-77.04],// Peru
+  'COL':[4.71,-74.07], // Colombia
+  'CZE':[50.08,14.44], // Czech Republic
+  'POL':[52.23,21.01], // Poland
+  'SWE':[59.33,18.07], // Sweden
+  'NOR':[59.91,10.75], // Norway
+  'DEN':[55.68,12.57], // Denmark
+  'NED':[52.37,4.9],   // Netherlands
+  'BEL':[50.85,4.35],  // Belgium
+  'AUT':[48.21,16.37], // Austria
+  'SUI':[47.38,8.54],  // Switzerland
+  'PRT':[38.72,-9.14], // Portugal
+  'GRE':[37.98,23.73], // Greece
+  'BUL':[42.7,23.32],  // Bulgaria
 };
 const QUICK_PICKS = [
   {name:'Sinner',id:47275},{name:'Alcaraz',id:68074},
@@ -398,9 +459,10 @@ const QUICK_PICKS = [
 // ─── STATE ──────────────────────────────────────────────────────────────────
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const state = {
-  tour:'atp', tab:'fixtures', surface:'Clay', bestOf:5,
+  tour:'atp', tab:'fixtures',
   selectedDate: new Date(TODAY),
   fixtures:[], predictions:{}, rankCache:new Map(), rankingsLoaded:false,
+  collapsed:{}, showITF: false, // ITF hidden by default
 };
 
 // ─── BEST-OF DETECTION ──────────────────────────────────────────────────────
@@ -871,16 +933,23 @@ function toList(d) {
 }
 
 async function fetchFixtures(tour, date) {
-  const today = new Date(); today.setHours(0,0,0,0);
-  const isToday = date === fmtDate(today);
-  const path = isToday
-    ? `/tennis/v2/${tour}/fixtures`
-    : `/tennis/v2/${tour}/fixtures/${date}`;
-  return toList(await apiFetch(path, {
-    include:'round,tournament.court,tournament.rank,h2h',
-    filter:'PlayerGroup:singles',
-    pageSize:50, pageNo:1
-  }));
+  // Always use dated endpoint for consistent results
+  const path = `/tennis/v2/${tour}/fixtures/${date}`;
+  // Paginate through all pages until hasNextPage is false
+  let all = [], page = 1, hasMore = true;
+  while (hasMore && page <= 10) {
+    const res = await apiFetch(path, {
+      include: 'round,tournament.court,tournament.rank',
+      filter: 'PlayerGroup:singles',
+      pageSize: 100, pageNo: page
+    });
+    const items = toList(res);
+    all = all.concat(items);
+    hasMore = (typeof res === 'object' && !Array.isArray(res)) ? !!res.hasNextPage : false;
+    page++;
+    if (!items.length) break;
+  }
+  return all;
 }
 
 async function fetchRankings(tour) {
@@ -1220,13 +1289,14 @@ function shiftDate(n) {
   state.selectedDate = addDays(state.selectedDate, n);
   state.predictions = {};
   state.fixtures = [];
+  state.collapsed = {};
   updateDateUI();
   loadFixtures();
 }
 
 // ─── TOUR / TAB ─────────────────────────────────────────────────────────────
 function setTour(tour, btn) {
-  state.tour = tour; state.predictions = {}; state.fixtures = [];
+  state.tour = tour; state.predictions = {}; state.fixtures = []; state.collapsed = {};
   state.rankCache.clear(); state.rankingsLoaded = false;
   document.querySelectorAll('.tour-btn').forEach(b=>b.classList.toggle('active',b===btn));
   if (state.tab==='fixtures') loadFixtures();
@@ -1256,80 +1326,24 @@ function setBo(n) {
 }
 
 // ─── FIXTURES ────────────────────────────────────────────────────────────────
-async function loadFixtures() {
-  const el = document.getElementById('fix-content');
-  el.innerHTML = `<div class="spinner-wrap"><div class="big-spin"></div><div class="spin-msg">Loading matches…</div></div>`;
-  try {
-    const fixtures = await fetchFixtures(state.tour, fmtDate(state.selectedDate));
-    state.fixtures = fixtures;
-    if (!fixtures.length) {
-      el.innerHTML = `<div class="empty"><span class="empty-icon">🎾</span><div class="empty-msg">No matches on this date</div></div>`;
-      return;
-    }
-    renderFixtures();
-    schedulePredictions();
-  } catch(e) {
-    el.innerHTML = `<div class="empty"><span class="empty-icon">⚠️</span><div class="empty-msg">${e.message}</div></div>`;
-  }
-}
-
-function renderFixtures() {
-  const el = document.getElementById('fix-content');
-  el.innerHTML = state.fixtures.map(f => {
-    const t = f.tournament||{};
-    const surf = f.surface || SURFACE_MAP[t.courtId] || 'Hard';
-    const pillKey = surf==='Indoor Hard'?'Indoor':surf;
-    const pred = state.predictions[f.id];
-    return `
-    <div class="card fix-card" onclick="openFixture(${f.id})">
-      <div class="card-p">
-        <div class="fix-meta">
-          <span class="pill pill-${pillKey}">${surf}</span>
-          <span class="fix-tourn">${t.name||''}</span>
-          <span class="fix-tag">Bo${determineBestOf(f, state.tour)}</span>
-          ${f.round?.name?`<span class="fix-tag">${f.round.name}</span>`:''}
-        </div>
-        <div class="players-row">
-          <div class="pcol">
-            <div class="pnm">${f.player1?.name||'TBA'}</div>
-            ${f.seed1?`<div class="pseed">[${f.seed1}]</div>`:''}
-          </div>
-          <div class="vs-badge">VS</div>
-          <div class="pcol right">
-            <div class="pnm">${f.player2?.name||'TBA'}</div>
-            ${f.seed2?`<div class="pseed">[${f.seed2}]</div>`:''}
-          </div>
-        </div>
-        <div id="pbar-${f.id}">${pred ? renderBar(pred) : '<div class="pred-loading"><div class="mini-spin"></div>Calculating…</div>'}</div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function renderBar(r) {
-  const c = r.superCombined;
-  const isP1 = c.p1WinProb>0.5;
-  return `
-    <div class="bar-labels">
-      <span class="bar-lbl ${isP1?'w':''}">${(c.p1WinProb*100).toFixed(1)}%</span>
-      <span class="bar-lbl ${!isP1?'w':''}">${(c.p2WinProb*100).toFixed(1)}%</span>
-    </div>
-    <div class="prob-track"><div class="prob-fill" style="width:${(c.p1WinProb*100).toFixed(1)}%"></div></div>
-    <div class="set-lbl">${c.predictedSetScore}</div>`;
-}
-
+// ── Smart prediction scheduler — queues all fixtures, prioritises high-rank ones
 async function schedulePredictions() {
-  for (const f of state.fixtures.slice(0,12)) {
-    const p1 = f.player1Id||f.player1?.id;
-    const p2 = f.player2Id||f.player2?.id;
-    if (!p1||!p2) continue;
+  // Sort: Grand Slams & Challengers first, ITF last
+  const queue = [...state.fixtures].sort((a,b) => {
+    const ra = (b.tournament?.rankId||0) - (a.tournament?.rankId||0);
+    return ra;
+  });
+  for (const f of queue) {
     if (state.predictions[f.id]) continue;
+    const p1 = f.player1Id || f.player1?.id;
+    const p2 = f.player2Id || f.player2?.id;
+    if (!p1 || !p2) continue;
     try {
-      const surf = f.surface || SURFACE_MAP[f.tournament?.courtId] || 'Hard';
+      const t = f.tournament || {};
+      const surf = SURFACE_MAP[t.courtId] || 'Hard';
       const r = await runFullPrediction(
         p1, p2, surf, determineBestOf(f, state.tour), state.tour,
-        f.tournament?.countryAcr||'DEF',
-        f.round?.id||4, f.tournament?.rankId||2
+        t.countryAcr || 'DEF', f.round?.id || 4, t.rankId || 0
       );
       state.predictions[f.id] = r;
       const bar = document.getElementById(`pbar-${f.id}`);
@@ -1341,7 +1355,137 @@ async function schedulePredictions() {
   }
 }
 
-// ─── FIXTURE DETAIL ──────────────────────────────────────────────────────────
+async function loadFixtures() {
+  const el = document.getElementById('fix-content');
+  el.innerHTML = `<div class="spinner-wrap"><div class="big-spin"></div><div class="spin-msg" id="fix-msg">Fetching matches…</div></div>`;
+  try {
+    const fixtures = await fetchFixtures(state.tour, fmtDate(state.selectedDate));
+    state.fixtures = fixtures;
+    if (!fixtures.length) {
+      el.innerHTML = `<div class="empty"><span class="empty-icon">🎾</span><div class="empty-msg">No matches on this date</div></div>`;
+      return;
+    }
+    const msgEl = document.getElementById('fix-msg');
+    if (msgEl) msgEl.textContent = `Loading ${fixtures.length} matches…`;
+    renderFixtures();
+    schedulePredictions(); // runs async in background — no await
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><span class="empty-icon">⚠️</span><div class="empty-msg">${e.message}</div></div>`;
+  }
+}
+
+function renderFixtures() {
+  const el = document.getElementById('fix-content');
+  if (!state.fixtures.length) {
+    el.innerHTML = `<div class="empty"><span class="empty-icon">🎾</span><div class="empty-msg">No matches on this date</div></div>`;
+    return;
+  }
+
+  // ── Build tournament groups ───────────────────────────────────────────────
+  const groups = {};
+  for (const f of state.fixtures) {
+    const t = f.tournament || {};
+    const key = t.id || t.name || 'unknown';
+    if (!groups[key]) {
+      const rankId = t.rankId || 0;
+      let rankLabel, rankClass, rankOrder;
+      if (rankId === 4)      { rankLabel='Grand Slam'; rankClass='gs';      rankOrder=0; }
+      else if (rankId === 3) { rankLabel='Masters';    rankClass='atp1000'; rankOrder=1; }
+      else if (rankId === 2) { rankLabel='ATP 500';    rankClass='atp500';  rankOrder=2; }
+      else if (rankId === 1) { rankLabel='ATP 250/Challenger'; rankClass='chal'; rankOrder=3; }
+      else                   { rankLabel='ITF';        rankClass='itf';     rankOrder=4; }
+      const surf = SURFACE_MAP[t.courtId] || 'Hard';
+      const surfPill = surf === 'Indoor Hard' ? 'Indoor' : surf;
+      const country = t.countryAcr ? ` · ${t.countryAcr}` : '';
+      groups[key] = {
+        id: key, name: t.name || 'Unknown', rankId, rankLabel, rankClass, rankOrder,
+        surf, surfPill, country, matches: []
+      };
+    }
+    groups[key].matches.push(f);
+  }
+
+  // ── Sort groups by rank ───────────────────────────────────────────────────
+  const sorted = Object.values(groups).sort((a,b) => a.rankOrder - b.rankOrder || a.name.localeCompare(b.name));
+  const hasITF = sorted.some(g => g.rankOrder === 4);
+  const showITF = state.showITF !== false;
+
+  // ── Filter bar ────────────────────────────────────────────────────────────
+  const visibleGroups = sorted.filter(g => showITF || g.rankOrder < 4);
+  const totalMatches = visibleGroups.reduce((a,g)=>a+g.matches.length,0);
+
+  let html = `<div class="tour-filter-bar">
+    <span style="font-size:11px;color:var(--sub)">${totalMatches} matches · ${visibleGroups.length} events</span>
+    <span style="flex:1"></span>`;
+
+  if (hasITF) {
+    html += `<button class="filter-btn ${showITF?'active':''}" onclick="toggleITF()">ITF/M15/M25</button>`;
+  }
+  html += `</div>`;
+
+  // ── Build tournament sections ─────────────────────────────────────────────
+  for (const g of visibleGroups) {
+    const isCollapsed = state.collapsed?.[g.id] || false;
+    const surfPill = g.surfPill;
+    html += `
+    <div class="tour-group" id="tg-${g.id}">
+      <div class="tour-group-header" onclick="toggleGroup('${g.id}')">
+        <span class="tgh-rank ${g.rankClass}">${g.rankLabel}</span>
+        <span class="tgh-name">${g.name}</span>
+        <span class="tgh-surf"><span class="pill pill-${surfPill}" style="font-size:9px;padding:2px 7px">${g.surf}</span></span>
+        <span class="tgh-count">${g.matches.length}</span>
+        <span class="tgh-arrow ${isCollapsed?'':'open'}">▼</span>
+      </div>
+      <div class="tour-cards" id="tc-${g.id}" style="${isCollapsed?'display:none':''}">`;
+
+    for (const f of g.matches) {
+      const surf = f.surface || SURFACE_MAP[(f.tournament||{}).courtId] || 'Hard';
+      const pillKey = surf === 'Indoor Hard' ? 'Indoor' : surf;
+      const pred = state.predictions[f.id];
+      html += `
+        <div class="card fix-card" onclick="openFixture(${f.id})">
+          <div class="card-p">
+            <div class="fix-meta">
+              <span class="fix-tag">Bo${determineBestOf(f, state.tour)}</span>
+              ${f.round?.name ? `<span class="fix-tag">${f.round.name}</span>` : ''}
+              ${f.seed1||f.seed2 ? `<span class="fix-tag" style="color:var(--accent)">Seeds</span>` : ''}
+            </div>
+            <div class="players-row">
+              <div class="pcol">
+                <div class="pnm">${f.player1?.name||'TBA'}</div>
+                ${f.seed1?`<div class="pseed">[${f.seed1}]</div>`:''}
+              </div>
+              <div class="vs-badge">VS</div>
+              <div class="pcol right">
+                <div class="pnm">${f.player2?.name||'TBA'}</div>
+                ${f.seed2?`<div class="pseed">[${f.seed2}]</div>`:''}
+              </div>
+            </div>
+            <div id="pbar-${f.id}">${pred ? renderBar(pred) : '<div class="pred-loading"><div class="mini-spin"></div><span>Calculating…</span></div>'}</div>
+          </div>
+        </div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+function toggleGroup(id) {
+  if (!state.collapsed) state.collapsed = {};
+  state.collapsed[id] = !state.collapsed[id];
+  const cards = document.getElementById(`tc-${id}`);
+  const arrow = document.querySelector(`#tg-${id} .tgh-arrow`);
+  if (cards) cards.style.display = state.collapsed[id] ? 'none' : '';
+  if (arrow) arrow.classList.toggle('open', !state.collapsed[id]);
+}
+
+function toggleITF() {
+  state.showITF = state.showITF === false ? true : false;
+  renderFixtures();
+}
+
+
 async function openFixture(id) {
   const f = state.fixtures.find(x=>x.id===id);
   if (!f) return;
