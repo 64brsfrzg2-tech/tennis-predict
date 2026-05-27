@@ -324,6 +324,21 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:-a
 .track-btn.copy  { background:var(--card); color:var(--sub); border:1px solid var(--border); flex:0 0 auto; padding:10px 14px; }
 .track-badge-pill { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:8px;
                     background:#1a3a5c; color:#90caf9; font-size:10px; font-weight:700; border:1px solid #2a5a9c; }
+
+/* ═══ LEARN TAB — IMPORT BAR ════════════════════════════════════════════════ */
+.import-bar      { display:flex; align-items:center; gap:12px; padding:14px 16px;
+                   background:linear-gradient(135deg,#0d2137,#0d2d1a);
+                   border:1px solid #1a4a3a; border-radius:14px; margin-bottom:14px; }
+.import-bar-left { display:flex; align-items:center; gap:10px; flex:1; }
+.import-icon     { font-size:22px; }
+.import-title    { font-size:13px; font-weight:700; color:#69f0ae; }
+.import-sub      { font-size:11px; color:var(--sub); margin-top:2px; }
+.import-all-btn  { padding:9px 16px; border-radius:10px; border:none; background:#1a6a3a;
+                   color:#69f0ae; font-size:12px; font-weight:700; cursor:pointer;
+                   white-space:nowrap; transition:all .2s; }
+.import-all-btn:hover { background:#1a8a4a; }
+.import-all-btn:disabled { opacity:0.5; cursor:not-allowed; }
+.import-progress { font-size:11px; color:var(--sub); margin-top:6px; }
 </style>
 </head>
 <body>
@@ -1359,6 +1374,8 @@ async function schedulePredictions() {
       state.predictions[f.id] = r;
       const bar = document.getElementById(`pbar-${f.id}`);
       if (bar) bar.innerHTML = renderBar(r);
+      // Auto-log to learning engine (fire-and-forget)
+      logPrediction(f, r);
     } catch(e) {
       const bar = document.getElementById(`pbar-${f.id}`);
       if (bar) bar.innerHTML = `<div style="font-size:11px;color:var(--muted)">—</div>`;
@@ -1514,6 +1531,7 @@ async function openFixture(id) {
       r = await runFullPrediction(p1,p2,surf,determineBestOf(f, state.tour),state.tour,
         f.tournament?.countryAcr||'DEF',f.round?.id||4,f.tournament?.rankId||2);
       state.predictions[id]=r;
+      logPrediction(f, r); // auto-log when prediction first runs
     } catch(e) {
       body.innerHTML=`<div class="empty"><span class="empty-icon">⚠️</span><div class="empty-msg">${e.message}</div></div>`;
       return;
@@ -1863,7 +1881,7 @@ function initQuickPicks() {
 // ══════════════════════════════════════════════════════════════════════════════
 const LEARN_URL = 'https://app.base44.com/functions/learningEngine';
 
-async function learnFetch(payload) {
+async async function learnFetch(payload) {
   try {
     const r = await fetch(LEARN_URL, {
       method: 'POST',
@@ -2011,7 +2029,22 @@ async function loadLearnTab() {
     ['Tactical ×', (w.tactical_multiplier||1).toFixed(2)],
   ].map(([l,v]) => `<div class="weight-card"><div class="weight-val">${v}</div><div class="weight-lbl">${l}</div></div>`).join('');
 
+  // Build import button if we have unlogged predictions
+  const predCount = Object.keys(state.predictions).length;
+  const importBtn = predCount > 0 ? `
+    <div class="import-bar">
+      <div class="import-bar-left">
+        <span class="import-icon">📥</span>
+        <div>
+          <div class="import-title">Today's Fixtures Loaded</div>
+          <div class="import-sub">${predCount} prediction${predCount>1?'s':''} ready · ${state.fixtures.length} matches on ${fmtDate(state.selectedDate)}</div>
+        </div>
+      </div>
+      <button class="import-all-btn" onclick="importAllToday(this)">Import All</button>
+    </div>` : '';
+
   el.innerHTML = `
+    ${importBtn}
     <!-- ACCURACY HERO -->
     <div class="learn-hero">
       <div class="learn-acc">${h.accuracy_pct}%</div>
@@ -2214,6 +2247,97 @@ function showToast(msg, isError=false) {
 function closeLearnAndOpen(fixtureId) {
   setTab('fixtures', document.querySelector('.tab[onclick*=\'fixtures\']'));
   setTimeout(() => openFixture(fixtureId), 150);
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// IMPORT ALL TODAY — bulk log every computed prediction to the learning engine
+// ══════════════════════════════════════════════════════════════════════════════
+async function importAllToday(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Importing…'; }
+
+  const fixtures = state.fixtures;
+  const predictions = state.predictions;
+  let logged = 0, skipped = 0, failed = 0;
+
+  // Only import fixtures that have a completed prediction
+  const toImport = fixtures.filter(f => {
+    const p1 = f.player1Id || f.player1?.id;
+    const p2 = f.player2Id || f.player2?.id;
+    return p1 && p2 && predictions[f.id];
+  });
+
+  if (!toImport.length) {
+    showToast('⏳ No predictions ready yet — wait for the models to finish running', false);
+    if (btn) { btn.disabled = false; btn.textContent = 'Import All'; }
+    return;
+  }
+
+  // Update button to show progress
+  const updateProgress = (done, total) => {
+    if (btn) btn.textContent = `${done}/${total}…`;
+  };
+
+  for (let i = 0; i < toImport.length; i++) {
+    const f = toImport[i];
+    const r = predictions[f.id];
+    updateProgress(i + 1, toImport.length);
+
+    try {
+      const ea = r.eliteAnalysis || {};
+      const det = ea.upsetRisk?.detectors || {};
+      const res = await learnFetch({
+        action: 'log_prediction',
+        fixture_id: f.id,
+        match_date: f.date || fmtDate(state.selectedDate),
+        tour: state.tour,
+        surface: r.surface || SURFACE_MAP[(f.tournament||{}).courtId] || 'Hard',
+        best_of: r.bestOf || determineBestOf(f, state.tour),
+        tournament_name: f.tournament?.name || '',
+        round_name: f.round?.name || '',
+        p1_id: r.player1?.id || f.player1?.id,
+        p1_name: r.player1?.name || f.player1?.name || '',
+        p2_id: r.player2?.id || f.player2?.id,
+        p2_name: r.player2?.name || f.player2?.name || '',
+        predicted_winner_id: r.superCombined?.p1WinProb > 0.5 ? (r.player1?.id || f.player1?.id) : (r.player2?.id || f.player2?.id),
+        predicted_winner_name: r.predictedWinner || '',
+        predicted_win_pct: r.winnerWinPct || 50,
+        predicted_set_score: r.superCombined?.predictedSetScore || '',
+        model_mc: r.models?.monteCarlo?.p1WinProb || 0.5,
+        model_lr: r.models?.logisticRegression?.p1WinProb || 0.5,
+        model_po: r.models?.poisson?.p1WinProb || 0.5,
+        model_an: r.models?.analytical?.p1WinProb || 0.5,
+        upset_risk_score: ea.upsetRisk?.score || 0,
+        fatigue_risk_p1: ea.p1Intel?.fatigueRisk || 'Low',
+        fatigue_risk_p2: ea.p2Intel?.fatigueRisk || 'Low',
+        surface_score_p1: ea.p1Intel?.surfScore || 5,
+        surface_score_p2: ea.p2Intel?.surfScore || 5,
+        tactical_score: ea.tactical?.rawScore || 0,
+        tactical_edge: ea.tactical?.tacticalEdge || 'Neutral',
+        fragile_favorite: det.fragileFavorite || false,
+        dangerous_underdog: det.dangerousUnderdog || false,
+        surface_fraud: det.surfaceFraud || false,
+        fatigue_collapse: det.fatigueCollapse || false,
+      });
+      if (res.ok || res.id) { logged++; window._trackedIds?.add(f.id); }
+      else if (res.error?.includes('already') || res.error?.includes('duplicate')) skipped++;
+      else { failed++; console.warn('log failed for', f.id, res.error); }
+    } catch(e) {
+      failed++;
+      console.warn('import error for fixture', f.id, e);
+    }
+  }
+
+  const msg = `✅ Imported ${logged} predictions${skipped ? ` · ${skipped} already logged` : ''}${failed ? ` · ${failed} failed` : ''}`;
+  showToast(msg);
+  if (btn) {
+    btn.textContent = `✅ ${logged} logged`;
+    btn.style.background = '#1a4a2a';
+    btn.style.color = '#81c784';
+  }
+
+  // Refresh the learn tab to show the newly logged matches
+  setTimeout(() => loadLearnTab(), 800);
 }
 
 // Boot: fetch learned weights so they're applied from first prediction
