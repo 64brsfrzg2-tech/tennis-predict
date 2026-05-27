@@ -313,6 +313,17 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:-a
               background:var(--card); color:var(--sub); font-size:11px; font-weight:600; cursor:pointer; }
 .filter-btn.active { background:var(--accent2); color:#fff; border-color:var(--accent); }
 .itf-notice { font-size:10px; color:var(--muted); }
+
+/* ═══ TRACK BUTTON IN DETAIL ════════════════════════════════════════════════ */
+.track-btn-row   { display:flex; gap:10px; align-items:center; margin:14px 0 6px; }
+.track-btn       { display:flex; align-items:center; gap:7px; padding:10px 18px; border-radius:12px;
+                   border:none; font-size:13px; font-weight:700; cursor:pointer; transition:all .2s; flex:1; justify-content:center; }
+.track-btn.track  { background:linear-gradient(135deg,#1a3a5c,#1a4a7c); color:#90caf9; border:1px solid #2a5a9c; }
+.track-btn.track:hover  { background:linear-gradient(135deg,#1a4a7c,#2a5a9c); }
+.track-btn.tracked { background:linear-gradient(135deg,#1a4a2a,#1a6a3a); color:#69f0ae; border:1px solid #2a8a4a; }
+.track-btn.copy  { background:var(--card); color:var(--sub); border:1px solid var(--border); flex:0 0 auto; padding:10px 14px; }
+.track-badge-pill { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:8px;
+                    background:#1a3a5c; color:#90caf9; font-size:10px; font-weight:700; border:1px solid #2a5a9c; }
 </style>
 </head>
 <body>
@@ -1508,8 +1519,10 @@ async function openFixture(id) {
       return;
     }
   }
+  r._fixtureId = id; // carry fixture ID into detail
   body.innerHTML = buildDetail(r);
   requestAnimationFrame(()=>{ document.querySelectorAll('[data-w]').forEach(el=>el.style.width=el.dataset.w+'%'); });
+  updateTrackBtn(id);
 }
 
 function closeDetail() {
@@ -1824,6 +1837,14 @@ function buildDetail(r) {
 
   <!-- H2H -->
   ${h2hHTML}
+
+  <!-- TRACK BUTTON -->
+  <div class="track-btn-row" style="margin-top:16px">
+    <button class="track-btn" id="track-btn-${r._fixtureId||0}" 
+      onclick="trackThisMatch(${r._fixtureId||0}, this)" style="font-size:13px">
+      🧠 Track this match
+    </button>
+  </div>
   `;
 }
 
@@ -1952,10 +1973,17 @@ async function loadLearnTab() {
   // Pending outcome cards
   const pendCards = (p.pending||[]).map(m => `
     <div class="pending-card" id="pc-${m.fixture_id}">
-      <div class="pending-match">${m.match}</div>
-      <div class="pending-meta">${m.date||'?'} · ${m.surface} · ${m.tournament||''}</div>
-      <div class="pending-pred">🎯 Predicted: <strong>${m.predicted}</strong> (${m.predicted_pct?.toFixed(1)||'?'}%)</div>
-      <div style="font-size:11px;color:var(--sub);margin-bottom:8px">Who actually won?</div>
+      <div style="display:flex;align-items:flex-start;gap:8px">
+        <div style="flex:1">
+          <div class="pending-match">${m.match}</div>
+          <div class="pending-meta">${m.date||'?'} · ${m.surface} · ${m.tournament||''}</div>
+          <div class="pending-pred">🎯 Predicted: <strong>${m.predicted}</strong> (${m.predicted_pct?.toFixed(1)||'?'}%)</div>
+        </div>
+        ${state.fixtures.find(fx=>String(fx.id)===String(m.fixture_id))
+          ? `<button onclick="closeLearnAndOpen(${m.fixture_id})" style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--sub);font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap">🔍 View</button>`
+          : ''}
+      </div>
+      <div style="font-size:11px;color:var(--sub);margin:8px 0">Who actually won?</div>
       <div class="outcome-btns">
         <button class="outcome-btn p1" onclick="submitOutcome('${m.fixture_id}','${m.p1_id}','${m.p1_name}','${m.fixture_id}')">${m.p1_name.split(' ').pop()}</button>
         <button class="outcome-btn p2" onclick="submitOutcome('${m.fixture_id}','${m.p2_id}','${m.p2_name}','${m.fixture_id}')">${m.p2_name.split(' ').pop()}</button>
@@ -2054,6 +2082,138 @@ async function submitOutcome(fixtureId, winnerId, winnerName, cardId) {
   } else {
     if (card) card.innerHTML = `<div style="color:#ff6b6b;padding:10px;font-size:12px">Error: ${res.error}</div>`;
   }
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TRACK THIS MATCH — explicit import to Learn tab
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Store tracked fixture IDs in memory (persisted via learnFetch as a side-effect)
+if (!window._trackedIds) window._trackedIds = new Set();
+
+async function trackThisMatch(fixtureId, btn) {
+  if (!fixtureId) return;
+  const alreadyTracked = window._trackedIds.has(fixtureId);
+
+  if (alreadyTracked) {
+    // Already tracked — jump to Learn tab to show it
+    closeDetail();
+    setTab('learn', document.querySelector('.tab[onclick*=\'learn\']'));
+    return;
+  }
+
+  // Mark as tracked optimistically
+  window._trackedIds.add(fixtureId);
+  if (btn) {
+    btn.classList.remove('track');
+    btn.classList.add('tracked');
+    btn.textContent = '⏳ Logging…';
+    btn.disabled = true;
+  }
+
+  // Get the fixture and prediction result
+  const f = state.fixtures.find(x => x.id === fixtureId);
+  const r = state.predictions[fixtureId];
+  if (!f || !r) {
+    if (btn) { btn.textContent = '⚠️ No data yet'; btn.disabled = false; }
+    return;
+  }
+
+  // Log to learning engine (same as auto-log but explicit = shows confirmation)
+  const ea = r.eliteAnalysis || {};
+  const det = ea.upsetRisk?.detectors || {};
+  const res = await learnFetch({
+    action: 'log_prediction',
+    fixture_id: fixtureId,
+    match_date: f.date || new Date().toISOString(),
+    tour: state.tour,
+    surface: r.surface,
+    best_of: r.bestOf,
+    tournament_name: f.tournament?.name || '',
+    round_name: f.round?.name || '',
+    p1_id: r.player1.id, p1_name: r.player1.name,
+    p2_id: r.player2.id, p2_name: r.player2.name,
+    predicted_winner_id: r.superCombined.p1WinProb > 0.5 ? r.player1.id : r.player2.id,
+    predicted_winner_name: r.predictedWinner,
+    predicted_win_pct: r.winnerWinPct,
+    predicted_set_score: r.superCombined.predictedSetScore,
+    model_mc: r.models?.monteCarlo?.p1WinProb || 0.5,
+    model_lr: r.models?.logisticRegression?.p1WinProb || 0.5,
+    model_po: r.models?.poisson?.p1WinProb || 0.5,
+    model_an: r.models?.analytical?.p1WinProb || 0.5,
+    upset_risk_score: ea.upsetRisk?.score || 0,
+    fatigue_risk_p1: ea.p1Intel?.fatigueRisk || 'Low',
+    fatigue_risk_p2: ea.p2Intel?.fatigueRisk || 'Low',
+    surface_score_p1: ea.p1Intel?.surfScore || 5,
+    surface_score_p2: ea.p2Intel?.surfScore || 5,
+    tactical_score: ea.tactical?.rawScore || 0,
+    tactical_edge: ea.tactical?.tacticalEdge || 'Neutral',
+    fragile_favorite: det.fragileFavorite || false,
+    dangerous_underdog: det.dangerousUnderdog || false,
+    surface_fraud: det.surfaceFraud || false,
+    fatigue_collapse: det.fatigueCollapse || false,
+  });
+
+  if (res.ok || res.id) {
+    if (btn) {
+      btn.classList.add('tracked');
+      btn.innerHTML = '✅ In Learn tab — tap to view';
+      btn.disabled = false;
+      btn.onclick = () => {
+        closeDetail();
+        setTab('learn', document.querySelector('.tab[onclick*=\'learn\']'));
+      };
+    }
+    // Show a quick toast
+    showToast('🧠 Match tracked! Open Learn tab to log the outcome.');
+  } else {
+    window._trackedIds.delete(fixtureId);
+    if (btn) { btn.classList.remove('tracked'); btn.classList.add('track'); btn.textContent = '🧠 Track this match'; btn.disabled = false; }
+    showToast('⚠️ Could not log — ' + (res.error || 'unknown error'), true);
+  }
+}
+
+// Update track button state when reopening a match detail
+function updateTrackBtn(fixtureId) {
+  const btn = document.getElementById(`track-btn-${fixtureId}`);
+  if (!btn) return;
+  if (window._trackedIds?.has(fixtureId)) {
+    btn.classList.remove('track');
+    btn.classList.add('tracked');
+    btn.innerHTML = '✅ In Learn tab — tap to view';
+    btn.onclick = () => {
+      closeDetail();
+      setTab('learn', document.querySelector('.tab[onclick*=\'learn\']'));
+    };
+  }
+}
+
+// Toast notification helper
+function showToast(msg, isError=false) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);'+
+      'background:#1a2a3a;color:#fff;padding:10px 18px;border-radius:12px;font-size:13px;font-weight:600;'+
+      'z-index:9999;opacity:0;transition:all .3s;pointer-events:none;border:1px solid #2a4a6a;'+
+      'box-shadow:0 4px 20px rgba(0,0,0,.5);max-width:280px;text-align:center;white-space:nowrap;';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.background = isError ? '#3a1a1a' : '#1a2a3a';
+  t.style.borderColor = isError ? '#6a2a2a' : '#2a4a6a';
+  t.style.opacity = '1';
+  t.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity='0'; t.style.transform='translateX(-50%) translateY(20px)'; }, 2800);
+}
+
+
+function closeLearnAndOpen(fixtureId) {
+  setTab('fixtures', document.querySelector('.tab[onclick*=\'fixtures\']'));
+  setTimeout(() => openFixture(fixtureId), 150);
 }
 
 // Boot: fetch learned weights so they're applied from first prediction
