@@ -1,12 +1,9 @@
 """
 Tennis API Client — wraps tennis-api-atp-wta-itf.p.rapidapi.com
 """
-import os
 import requests
-from functools import lru_cache
-from typing import Optional
 
-RAPIDAPI_KEY = os.environ.get("RAPIDAPI_KEY", "")
+RAPIDAPI_KEY = "dbc967df17msh7bb8135c5d858c3p138f49jsn106697ef9b98"
 BASE_URL = "https://tennis-api-atp-wta-itf.p.rapidapi.com"
 HEADERS = {
     "X-RapidAPI-Key": RAPIDAPI_KEY,

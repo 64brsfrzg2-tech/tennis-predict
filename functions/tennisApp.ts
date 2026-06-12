@@ -377,17 +377,32 @@ async function getPlayerStats(pid, tour) {
 
 async function getH2H(p1id, p2id, tour) {
   try {
-    const d = await apiFetch(\`/tennis/v2/\${tour}/h2h\`, { player1Id:p1id, player2Id:p2id, pageSize:20 });
-    const list = toList(d);
-    if (!list.length) return null;
-    let p1w=0, p2w=0;
-    list.forEach(m => {
-      const w = (m.winner||{}).id;
-      if (w===p1id) p1w++;
-      else if (w===p2id) p2w++;
-    });
-    return { n:list.length, p1w, p2w, wr: p2w+p1w ? p1w/(p1w+p2w) : 0.5, ok:true };
-  } catch { return null; }
+    const [infoRes, statsRes] = await Promise.allSettled([
+      apiFetch(`/tennis/v2/${tour}/h2h/info/${p1id}/${p2id}`),
+      apiFetch(`/tennis/v2/${tour}/h2h/stats/${p1id}/${p2id}`),
+    ]);
+
+    const info = infoRes.status === 'fulfilled' ? infoRes.value : null;
+    const stats = statsRes.status === 'fulfilled' ? statsRes.value : null;
+    const infoObj = info && typeof info === 'object' ? info : {};
+    const statsObj = stats && typeof stats === 'object' ? stats : {};
+
+    const p1w = Number(infoObj.player1AllWins || infoObj.player1Wins || 0);
+    const p2w = Number(infoObj.player2AllWins || infoObj.player2Wins || 0);
+    const total = p1w + p2w;
+
+    return {
+      n: total || 0,
+      p1w,
+      p2w,
+      wr: total ? p1w / total : 0.5,
+      ok: total > 0,
+      player1Stats: statsObj.player1Stats || {},
+      player2Stats: statsObj.player2Stats || {},
+    };
+  } catch {
+    return null;
+  }
 }
 
 // ─── WEATHER ────────────────────────────────────────────────────────────────

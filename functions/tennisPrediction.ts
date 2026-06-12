@@ -4,7 +4,7 @@
 // ║          predictFixture | player | search                       ║
 // ╚══════════════════════════════════════════════════════════════════╝
 
-const RAPIDAPI_KEY = Deno.env.get("RAPIDAPI_KEY") || "";
+const RAPIDAPI_KEY = "dbc967df17msh7bb8135c5d858c3p138f49jsn106697ef9b98";
 const BASE_URL = "https://tennis-api-atp-wta-itf.p.rapidapi.com";
 const API_HDR = { "X-RapidAPI-Key": RAPIDAPI_KEY, "X-RapidAPI-Host": "tennis-api-atp-wta-itf.p.rapidapi.com" };
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST,GET,OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Content-Type": "application/json" };
