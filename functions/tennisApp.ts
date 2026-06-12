@@ -751,12 +751,19 @@ function renderBar(r) {
     <div class="set-lbl">\${c.predictedSetScore}</div>\`;
 }
 
+const MAX_PREDICTIONS = 8;
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function schedulePredictions() {
-  for (const f of state.fixtures.slice(0,12)) {
+  for (const f of state.fixtures.slice(0, MAX_PREDICTIONS)) {
     const p1 = f.player1Id||f.player1?.id;
     const p2 = f.player2Id||f.player2?.id;
     if (!p1||!p2) continue;
     if (state.predictions[f.id]) continue;
+    await sleep(150);
     try {
       const surf = f.surface || SURFACE_MAP[f.tournament?.courtId] || 'Hard';
       const r = await runFullPrediction(
