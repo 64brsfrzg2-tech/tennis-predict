@@ -1,0 +1,14 @@
+[build]
+command = "npm install"
+functions = "netlify/functions"
+publish = "."
+
+[[redirects]]
+from = "/api/*"
+to = "/.netlify/functions/tennis-api"
+status = 200
+force = true
+
+[context.production.environment]
+SOFASCORE_API_KEY = ""
+RAPIDAPI_KEY = ""
